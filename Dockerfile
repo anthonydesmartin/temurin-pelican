@@ -1,13 +1,42 @@
-FROM eclipse-temurin:21-jre-jammy
+FROM --platform=$TARGETOS/$TARGETARCH eclipse-temurin:21-jre-noble
 
-LABEL author="Neko"
-LABEL org.opencontainers.image.description="Temurin Java 21 for Pelican Panel"
+LABEL author="Michael Parker" maintainer="parker@pterodactyl.io"
+LABEL org.opencontainers.image.source="https://github.com/pterodactyl/yolks"
+LABEL org.opencontainers.image.licenses=MIT
 
-RUN apt-get update && apt-get install -y iproute2 && rm -rf /var/lib/apt/lists/*
+RUN apt update -y \
+    && apt install -y \
+        curl \
+        lsof \
+        ca-certificates \
+        openssl \
+        git \
+        tar \
+        sqlite3 \
+        fontconfig \
+        tzdata \
+        iproute2 \
+        libfreetype6 \
+        redis-tools \
+        tini \
+        zip \
+        unzip \
+        jq \
+        libjemalloc2 \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -d /home/container container
+ENV MALLOC_CONF="background_thread:true,metadata_thp:auto,dirty_decay_ms:20000,muzzy_decay_ms:20000"
+ENV LD_PRELOAD="/usr/lib/aarch64-linux-gnu/libjemalloc.so.2"
+
+RUN useradd -m -d /home/container -s /bin/bash container
 USER container
+ENV USER=container HOME=/home/container
 WORKDIR /home/container
 
-COPY --chmod=755 entrypoint.sh /entrypoint.sh
-CMD ["/bin/bash", "/entrypoint.sh"]
+STOPSIGNAL SIGINT
+
+COPY --chown=container:container ./../entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/usr/bin/tini", "-g", "--"]
+CMD ["/entrypoint.sh"]
